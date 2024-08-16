@@ -46,6 +46,9 @@
 #include <limits.h>
 #include <ctype.h>
 
+#include <TimerOne.h>
+#include <SPI.h>
+
 const char versionstr[] = "Benchmark digital i/o";
 
 const char authorstr[] =  "(c) 2024 by Mitchell C. Nelson, Ph.D. ";
@@ -62,13 +65,20 @@ const char authorstr[] =  "(c) 2024 by Mitchell C. Nelson, Ph.D. ";
 #define NANOSECS_TO_CYCLES(n) (((n)*CYCLES_PER_USEC)/1000)
 
 volatile uint32_t cpucycles = 0;
+volatile uint32_t cpucycles1 = 0;
 volatile uint32_t cpucycles2 = 0;
 volatile uint32_t cpuavg = 0;
 volatile uint32_t cpumax = 0;
 uint32_t cpucycles_overhead = 0;
 
-unsigned int outputpin;
-unsigned int inputpin;
+uint8_t outputpin;
+uint8_t inputpin;
+
+uint8_t diagnosticpin;
+unsigned int diagnosticpin_nsecs = 1000;
+bool use_diagnosticpin;
+
+uint8_t timertest_outpin;
 unsigned int timertest_countdown = 0;
 
 int serial_printf(const char *format, ...)
@@ -125,10 +135,10 @@ inline void _rebootFunc() {
 #define READMACRO (CORE_PIN5_PINREG & CORE_PIN5_BITMASK)
 
 // SPI interface to external device on T4 controller
-const int CNVSTPin = 10;
-const int SDIPin = 11;
-const int SDOPin = 12;
-const int CLKPin = 13;
+const uint8_t CNVSTPin = 10;
+const uint8_t SDIPin = 11;
+const uint8_t SDOPin = 12;
+const uint8_t CLKPin = 13;
 
 #define MAXADC 8
 uint8_t adcpins[MAXADC] = { A0, A1, A2, A3, A4, A5, A6, A7 };
@@ -199,10 +209,11 @@ inline int fastAnalogRead( uint8_t pin ) {
 
 // -------------------------------------------
 // SPI Specific for the Teensy 4.0, 3.2
-#include <SPI.h>
-
 #define SPI_SPEED 30000000
 SPISettings spi_settings( SPI_SPEED, MSBFIRST, SPI_MODE0);
+
+#define ADC_WAIT_NANOSECONDS_SPI_SPEEDUP 650
+#define ADC_WAIT_NANOSECONDS 530
 
 #define USE_SPI_SPEEDUP
 
@@ -286,23 +297,49 @@ void timing_const_direct_isr() {
 // ----------------------------------------
 IntervalTimer mytimer;
 
-void timertest_isr() {
-  if (!cpucycles) {
-    cpucycles = elapsed_cycles();
+void intervaltimer_test_isr() {
+  if (!cpucycles1) {
+    cpucycles1 = elapsed_cycles();
   }
-  DIGITALTOGGLE(OUTPIN);
+  DIGITALTOGGLE(timertest_outpin);
   if (timertest_countdown) {
     timertest_countdown--;
+    if (!timertest_countdown) {
+      cpucycles2 = elapsed_cycles();
+      mytimer.end();
+
+      if (use_diagnosticpin) {
+        DIGITALTOGGLE(diagnosticpin);
+        delayNanoseconds(diagnosticpin_nsecs);
+        DIGITALTOGGLE(diagnosticpin);
+      }
+    }
   }
-  if (!timertest_countdown) {
-    cpucycles2 = elapsed_cycles();
-    mytimer.end();
+  else {
+    Serial.println("Warning: intervaltimer_test_isr called after countdown expired");
   }
 }
 
-void timerstart( unsigned int usecs) {
-  elapsed_cycles();
-  mytimer.begin(timertest_isr,usecs);
+void intervaltimerTestStart(unsigned int usecs, uint8_t outpin, unsigned int cycles)
+{
+  pinMode(outpin,OUTPUT);
+
+  cpucycles = 0;
+  cpucycles1 = 0;
+  cpucycles2 = 0;
+    
+  timertest_outpin = outpin;
+  timertest_countdown = cycles;
+
+  if (use_diagnosticpin) {
+    DIGITALTOGGLE(diagnosticpin);
+    delayNanoseconds(diagnosticpin_nsecs);
+    DIGITALTOGGLE(diagnosticpin);
+  }
+
+  elapsed_cycles_start();
+  mytimer.begin(intervaltimer_test_isr,usecs);
+  cpucycles = elapsed_cycles();
 }
 
 // ==========================================================
@@ -312,9 +349,6 @@ void timerstart( unsigned int usecs) {
 #define DIGITALREAD(a) digitalRead(a)
 #define DIGITALWRITE(a,b) digitalWrite(a,b)
 #define DIGITALTOGGLE(a) digitalWrite(a,!digitalRead(a))
-
-#include <TimerOne.h>
-
 
 // Pins for fast read/write,etc and interrupt timing
 #define INPIN 5
@@ -337,11 +371,11 @@ void adcSetup() {
 }
 
 // -------------------------------------------
-#include <SPI.h>
-
 //#define SPI_SPEED 20000000
 #define SPI_SPEED 12000000
 SPISettings spi_settings( SPI_SPEED, MSBFIRST, SPI_MODE0);
+
+#define ADC_WAIT_NANOSECONDS 500 // the digital write time adds another 600nsecs
 
 void blink() {
   digitalWrite(13,HIGH);
@@ -379,42 +413,70 @@ inline void nanoDelay(uint32_t nsecs)
   while ((DWT->CYCCNT-start_cycles)<wait_cycles);
 }
 
-void timertest_isr() {
-  if (!cpucycles) {
-    cpucycles = elapsed_cycles();
-  }
-  DIGITALTOGGLE(OUTPIN);
-  if (timertest_countdown) {
-    timertest_countdown--;
-  }
-  if (!timertest_countdown) {
-    cpucycles2 = elapsed_cycles();
-    Timer1.stop();
-    Timer1.detachInterrupt();
-  }
-}
-
-bool timer_initialized = false;
-
-void timerstart( unsigned int usecs) {  
-  if (!timer_initialized) {
-    Timer1.initialize(100000);
-    delay(1000);
-    Timer1.stop();
-    timer_initialized = true;
-  }
-
-  timertest_countdown = 10;        
-  Timer1.setPeriod(usecs);
-  Timer1.attachInterrupt(timertest_isr);
-
-  elapsed_cycles();
-  Timer1.start();
-}
-
 
 #endif
 
+// -------------------------------------------------------
+
+void timerone_test_isr() {
+  if (!cpucycles1) {
+    cpucycles1 = elapsed_cycles();
+  }
+  DIGITALTOGGLE(timertest_outpin);
+  if (timertest_countdown) {
+    timertest_countdown--;
+    if (!timertest_countdown) {
+      cpucycles2 = elapsed_cycles();
+      Timer1.stop();
+      Timer1.detachInterrupt();
+
+      if (use_diagnosticpin) {
+        DIGITALTOGGLE(diagnosticpin);
+        DELAYNANOSECONDS(diagnosticpin_nsecs);
+        DIGITALTOGGLE(diagnosticpin);
+      }
+    }
+  }
+  else {
+    Serial.println("Warning: timerone_test_isr called after countdown expired");
+  }
+}
+
+bool timerone_initialized = false;
+
+void timeroneTestStart( unsigned int usecs, uint8_t outpin, unsigned int cycles) {  
+  if (!timerone_initialized) {
+    Timer1.initialize(100000);
+    delay(1000);
+    Timer1.stop();
+    timerone_initialized = true;
+  }
+
+  pinMode(outpin,OUTPUT);
+  
+  cpucycles = 0;
+  cpucycles1 = 0;
+  cpucycles2 = 0;
+  
+  timertest_outpin = outpin;
+  timertest_countdown = cycles;
+  
+  Timer1.stop();
+  Timer1.setPeriod(usecs);
+  Timer1.attachInterrupt(timerone_test_isr);
+
+  if (use_diagnosticpin) {
+    DIGITALTOGGLE(diagnosticpin);
+    DELAYNANOSECONDS(diagnosticpin_nsecs);
+    DIGITALTOGGLE(diagnosticpin);
+  }
+
+  elapsed_cycles_start();
+  Timer1.start();
+  cpucycles = elapsed_cycles();
+}
+
+// -------------------------------------------------------
 void timing_isr() {
   cpucycles = elapsed_cycles();
   DIGITALWRITE(outputpin,LOW);
@@ -472,6 +534,18 @@ bool testUint( char *pc, unsigned int *pu, char **next ) {
   return false;
 }
 
+bool testUint8( char *pc, uint8_t *pu, char **next ) {
+  unsigned long ul;
+  char *pc1 = pc;
+  ul = strtoul(pc,&pc1,0);
+  if ((pc1 > pc)&&(ul <= 255)) {
+    if (pu) *pu = ul;
+    if (next) *next = pc1;
+    return true;    
+  }
+  return false;
+}
+
 bool testKey(char *pc, const char *key, char **next) {
   int n = strlen(key);
 
@@ -491,50 +565,6 @@ void lowercase(char *pc, int nlen) {
     *pc = (char) tolower((int) *pc);
     pc++;
   }
-}
-
-#define RCVLEN 256
-char rcvbuffer[RCVLEN];
-int readindex = 0;
-
-int readLine( ) {
-
-  char c;
-  
-  int readlen = 0;
-
-  while (Serial.available()) {
-
-    c = Serial.read();
-
-    if ( c ) {
-
-      // break at ctl-character (including \n) or semi-colon
-      if (iscntrl( c ) || c == ';') {
-        readlen = readindex;
-        rcvbuffer[readindex] = 0;
-	readindex = 0;
-        return readlen;
-      }
-
-      // add c to the buffer, after leading spaces if any
-      else if (readindex || !isspace(c)) {
-        rcvbuffer[readindex++] = c;
-        // set the next byte to zero, always, until eob
-        if (readindex<RCVLEN) rcvbuffer[readindex] = 0;
-      }
-
-      // handle overflows here
-      if ( readindex >= RCVLEN ) {
-        Serial.println( (char *)"Error: buffer overflow" );
-        readindex = 0;
-	// discard the command
-	return 0;
-      }
-    }
-  }
-  // not finished the line yet.
-  return 0;
 }
 
 /* ===================================================================
@@ -599,15 +629,16 @@ void setup() {
 
 }
 
-
 /* ===========================================================
  */
+char rcvbuffer[256];
+
 void loop() {
 
   uint16_t nlen = 0;
   char *pc;
 
-  unsigned int pin;
+  uint8_t pin;
 
   uint16_t u16tmp;
 
@@ -616,14 +647,21 @@ void loop() {
    */
 
   if ((nlen=Serial.readBytesUntil('\n',rcvbuffer,sizeof(rcvbuffer)-1))) {
-      //if ( (nlen=readLine()) ) {
     
-    blink();
+    //blink();
 
+    rcvbuffer[nlen] = 0;
+    
     lowercase(rcvbuffer,nlen);
 
-    //Serial.println( rcvbuffer );
-
+    /*
+    Serial.print( "// Recieved: ");
+    Serial.print( nlen);
+    Serial.print( " bytes //");
+    Serial.print( rcvbuffer );
+    Serial.println( "//" );
+    */
+    
     /*-----------------------------------------------------------
       Put this at the top, best chance of getting to it if very busy
     */
@@ -642,6 +680,7 @@ void loop() {
       Serial.println("  temperature    - report microcontroller temperature");
 #endif
       Serial.println("  help           - display this message");
+      Serial.println("  diagnostic pin nsecs - pulse this pin for diagnostics");
       Serial.println("  adc [pin]      - time analogRead");
       Serial.println("  set [npin] hi|low|input|pullup|output");
       Serial.println("  read [npin]    - time digital Read");
@@ -651,13 +690,14 @@ void loop() {
       Serial.println("  latency [npin_in npin_out] - time isr latency");
       Serial.println("  spi            - time spi transfers");
       Serial.println("  faux spi       - time manual loop spi transfers");
-      Serial.println("  timer usecs    - time timer start and intervals");
+      Serial.println("  timer1 usecs pin cycles - time interval start and intervals");
 #ifdef IS_TEENSY
       Serial.println(" Teensy specific fucntions");
       Serial.println("  macro          - time read macro");
       Serial.println("  fast adc [pin] - time analogReadFast");
       Serial.println("  fast latency [npin_in npin_out] - time isr latency");
       Serial.println("  fast spi       - time optimized spi readout transfers");
+      Serial.println("  interval usecs pin cycles - time intervaltimer start and intervals");
       Serial.println("");
 #endif
       Serial.println("*/");
@@ -673,7 +713,7 @@ void loop() {
 #ifdef IS_TEENSY
     else if (testKey( rcvbuffer, "fast adc", &pc)) {
        
-      if (testUint(pc,&pin,NULL)) {
+      if (testUint8(pc,&pin,NULL)) {
 	cpucycles = 0;
 	cpuavg = 0;
 	cpumax = 0;
@@ -725,7 +765,7 @@ void loop() {
     else if (testKey( rcvbuffer, "fast latency", &pc)) {
 
 
-      if (testUint(pc,&inputpin,&pc)&&testUint(pc,&outputpin,NULL)) {
+      if (testUint8(pc,&inputpin,&pc)&&testUint8(pc,&outputpin,NULL)) {
 
 	pinMode(inputpin,INPUT);
 	pinMode(outputpin,OUTPUT);
@@ -803,7 +843,7 @@ void loop() {
       for (uint16_t i=0; i<NKNTS; i++){ 
 
 	DIGITALWRITE(CNVSTPin,HIGH);
-	DELAYNANOSECONDS( 700 );
+	DELAYNANOSECONDS( ADC_WAIT_NANOSECONDS_SPI_SPEEDUP );
 	DIGITALWRITE(CNVSTPin,LOW);
 
 	elapsed_cycles_start();
@@ -829,11 +869,65 @@ void loop() {
       sendResults( "SPI_fast_transfer16", cpuavg, cpumax, NKNTS);
     }
 
+
+    else if (testKey( rcvbuffer, "interval", &pc)) {
+
+      unsigned int usecs = 0;
+      unsigned int cycles = 10;
+      unsigned int msecs = 0;
+      
+      if (testUint(pc,&usecs,&pc)&&testUint8(pc,&pin,&pc)&&testUint(pc,&cycles,NULL)) {
+
+        Serial.print( "// intervaltimer period ");
+        Serial.print( usecs);
+        Serial.print( " pin ");
+        Serial.print( pin);
+        Serial.print( " cycles ");
+        Serial.println( cycles);
+
+        intervaltimerTestStart(usecs, pin, cycles);
+        //intervaltimerTestStart(usecs);
+
+        msecs = (usecs * 10)/1000.;
+        msecs = msecs > 100 ? msecs : 100;
+        delay(msecs+100);
+
+        serial_printf( "// intervalTimer cpucycles %d %d %d times %.5gnsec %.5gnsec %.5gnsec %.5gnsec counter %d\n",
+                       cpucycles, cpucycles1, cpucycles2,
+                       ((double)cpucycles/F_CPU)*1.E9,
+                       ((double)cpucycles1/F_CPU)*1.E9,
+                       ((double)cpucycles2/F_CPU)*1.E9,
+                       ((double)(cpucycles2-cpucycles1)/F_CPU)*1.E9,
+                       timertest_countdown);
+
+      }
+      else {
+        Serial.println("Error: intervaltimer usecs pin cycles, missing parameters");
+      }
+    }
+    
 #endif
 
+    else if (testKey( rcvbuffer, "// diagnostic off", &pc)) {
+      use_diagnosticpin = false;
+    }
+    
+    else if (testKey( rcvbuffer, "diagnostic", &pc)) {
+      
+      if (testUint8(pc,&diagnosticpin,&pc)) {
+        testUint(pc,&diagnosticpin_nsecs,NULL);
+        use_diagnosticpin = true;
+        serial_printf( "// diagnostic on pin %d %d nsecs\n",diagnosticpin,diagnosticpin_nsecs);
+      }
+      else {
+        Serial.println( "Error: diagnostic pin|off" );
+      }
+        
+    }
+    
     else if (testKey( rcvbuffer, "set", &pc)) {
        
-      if (testUint(pc,&pin,&pc)) {
+      if (testUint8(pc,&pin,&pc)) {
 
         if (testKey(pc,"hi",NULL)) {
           serial_printf( "// Set pin %d high\n",pin);
@@ -876,7 +970,7 @@ void loop() {
 
       Serial.println("Cyccnt" );
 
-      if (testUint(pc,&nsecs,&pc) && testUint(pc,&pin,&pc)) {        
+      if (testUint(pc,&nsecs,&pc) && testUint8(pc,&pin,&pc)) {        
 
         wait_cycles = (((nsecs)*(F_CPU / 1000000))/1000);
         
@@ -894,7 +988,7 @@ void loop() {
         //DIGITALWRITE(pin,HIGH);
 
         start_cycles = ARM_DWT_CYCCNT;
-        DELAYNANOSECONDS(5000);
+        DELAYNANOSECONDS(nsecs);
         stop_cycles = ARM_DWT_CYCCNT;
         
         //Serial.println("low");
@@ -916,7 +1010,7 @@ void loop() {
 
     else if (testKey( rcvbuffer, "adc", &pc)) {
        
-      if (testUint(pc,&pin,NULL)) {
+      if (testUint8(pc,&pin,NULL)) {
 	cpucycles = 0;
 	cpuavg = 0;
 	cpumax = 0;
@@ -953,7 +1047,7 @@ void loop() {
     
     else if (testKey( rcvbuffer, "read", &pc)) {
        
-      if (testUint(pc,&pin,NULL)) {
+      if (testUint8(pc,&pin,NULL)) {
 	cpucycles = 0;
 	cpuavg = 0;
 	cpumax = 0;
@@ -990,7 +1084,7 @@ void loop() {
       uint32_t uavg2 = 0;
       uint32_t umax2 = 0;
       
-      if (testUint(pc,&pin,NULL)) {
+      if (testUint8(pc,&pin,NULL)) {
 	for (int n = 0; n < NKNTS/2; n++ ) {
 
           ucycles1 = ARM_DWT_CYCCNT;
@@ -1040,7 +1134,7 @@ void loop() {
 
     else if (testKey( rcvbuffer, "pulse", &pc)) {
        
-      if (testUint(pc,&pin,NULL)) {
+      if (testUint8(pc,&pin,NULL)) {
 	cpucycles = 0;
 	cpuavg = 0;
 	cpumax = 0;
@@ -1072,7 +1166,7 @@ void loop() {
 
     else if (testKey( rcvbuffer, "toggle", &pc)) {
        
-      if (testUint(pc,&pin,NULL)) {
+      if (testUint8(pc,&pin,NULL)) {
 	cpucycles = 0;
 	cpuavg = 0;
 	cpumax = 0;
@@ -1108,7 +1202,7 @@ void loop() {
     else if (testKey( rcvbuffer, "latency", &pc)) {
 
 
-      if (testUint(pc,&inputpin,&pc)&&testUint(pc,&outputpin,NULL)) {
+      if (testUint8(pc,&inputpin,&pc)&&testUint8(pc,&outputpin,NULL)) {
 
 	pinMode(inputpin,INPUT);
 	pinMode(outputpin,OUTPUT);
@@ -1181,7 +1275,7 @@ void loop() {
       for (int n = 0; n < NKNTS; n++ ) {
 
 	DIGITALWRITE(CNVSTPin,HIGH);
-	DELAYNANOSECONDS(700);
+	DELAYNANOSECONDS(ADC_WAIT_NANOSECONDS);
 	DIGITALWRITE(CNVSTPin,LOW);
 	
 	elapsed_cycles_start();
@@ -1267,26 +1361,38 @@ void loop() {
     }
 
     else if (testKey( rcvbuffer, "timer1", &pc)) {
-      unsigned int usecs = 1000;
-      unsigned int msecs;
+      unsigned int usecs = 0;
+      unsigned int cycles = 10;
+      unsigned int msecs = 0;
       
-      if (testUint(pc,&usecs,NULL)||usecs) {
+      if (testUint(pc,&usecs,&pc)&&testUint8(pc,&pin,&pc)&&testUint(pc,&cycles,NULL)) {
 
         Serial.print( "// Timer1 period ");
-        Serial.println( usecs);
+        Serial.print( usecs);
+        Serial.print( " pin ");
+        Serial.print( pin);
+        Serial.print( " cycles ");
+        Serial.println( cycles);
 
-        timerstart(usecs);
+        timeroneTestStart(usecs, pin, cycles);
+        //timeroneTestStart(usecs);
 
         msecs = (usecs * 10)/1000.;
         msecs = msecs > 100 ? msecs : 100;
         delay(msecs+100);
 
-        serial_printf( "// Timer1 cycles %d %d time %f %f counter %d\n",
-                       cpucycles, cpucycles2,
+        serial_printf( "// Timer1 cpucycles %d %d %d times %.5gnsec %.5gnsec %.5gnsec %.5gnsec counter %d\n",
+                       cpucycles, cpucycles1, cpucycles2,
                        ((double)cpucycles/F_CPU)*1.E9,
+                       ((double)cpucycles1/F_CPU)*1.E9,
                        ((double)cpucycles2/F_CPU)*1.E9,
+                       ((double)(cpucycles2-cpucycles1)/F_CPU)*1.E9,
                        timertest_countdown);
+        
 
+      }
+      else {
+        Serial.println("Error: timer1 usecs pin cycles, missing parameters");
       }
 
     }
