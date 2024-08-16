@@ -1294,7 +1294,7 @@ void loop() {
         ravg += data[i];
       }
       ravg /= NKNTS;
-      serial_printf( "// average reading (binary) %.2f/n", ravg);
+      serial_printf( "// average reading (binary) %.2f\n", ravg);
       
       sendResults( "SPI_transfer16", cpuavg, cpumax, NKNTS);
 	      
