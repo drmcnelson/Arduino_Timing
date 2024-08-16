@@ -1,0 +1,20 @@
+help
+adc 14
+set 0 output
+set 1 output
+set 2 input
+set 3 output
+read 0
+write 3
+toggle 3
+pulse 3
+latency 2 3
+spi
+faux spi
+fast adc 14
+fast latency 2 3
+fast spi
+diagnostic 3 5000
+timer1 10000 3 4
+interval 10000 3 4
+

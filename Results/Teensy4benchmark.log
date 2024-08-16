@@ -1,0 +1,79 @@
+Error: command not recognized: version
+Error: command not recognized: configuration
+/* -----------------------------------------------
+Benchmark digital i/o
+(c) 2024 by Mitchell C. Nelson, Ph.D.
+reboot         - reboots the entire board
+temperature    - report microcontroller temperature
+help           - display this message
+diagnostic pin nsecs - pulse this pin for diagnostics
+adc [pin]      - time analogRead
+set [npin] hi|low|input|pullup|output
+read [npin]    - time digital Read
+write [npin]   - time digital Write
+toggle [npin]  - time digital Toggle
+pulse [npin]   - time write high then low
+latency [npin_in npin_out] - time isr latency
+spi            - time spi transfers
+faux spi       - time manual loop spi transfers
+timer1 usecs pin cycles - time interval start and intervals
+Teensy specific fucntions
+macro          - time read macro
+fast adc [pin] - time analogReadFast
+fast latency [npin_in npin_out] - time isr latency
+fast spi       - time optimized spi readout transfers
+interval usecs pin cycles - time intervaltimer start and intervals
+
+*/
+//fastAnalogRead pin 14 result 1653
+#define ANALOGREAD_CYCLES 638
+#define ANALOGREAD_NANOSECS 1063.3
+#define ANALOGREAD_CYCLES_MAX 666
+#define ANALOGREAD_NANOSECS_MAX 1110.0
+// Set pin 0 output
+// Set pin 1 output
+// Set pin 2 input
+// Set pin 3 output
+#define DIGITAL_READ_MEASUERED_CYCLES 26
+#define DIGITAL_READ_MEASUERED_NANOSECS 43.3
+#define DIGITAL_READ_MEASUERED_CYCLES_MAX 26
+#define DIGITAL_READ_MEASUERED_NANOSECS_MAX 43.3
+#define DIGITAL_WRITE_MEASUERED_CYCLES 12
+#define DIGITAL_WRITE_MEASUERED_NANOSECS 20.0
+#define DIGITAL_WRITE_MEASUERED_CYCLES_MAX 29
+#define DIGITAL_WRITE_MEASUERED_NANOSECS_MAX 48.3
+#define DIGITAL_WRITE_HIGH_MEASUERED_CYCLES 14
+#define DIGITAL_WRITE_HIGH_MEASUERED_NANOSECS 23.3
+#define DIGITAL_WRITE_HIGH_MEASUERED_CYCLES_MAX 29
+#define DIGITAL_WRITE_HIGH_MEASUERED_NANOSECS_MAX 48.3
+#define DIGITAL_WRITE_LOW_MEASUERED_CYCLES 11
+#define DIGITAL_WRITE_LOW_MEASUERED_NANOSECS 18.3
+#define DIGITAL_WRITE_LOW_MEASUERED_CYCLES_MAX 29
+#define DIGITAL_WRITE_LOW_MEASUERED_NANOSECS_MAX 48.3
+#define DIGITAL_TOGGLE_MEASUERED_CYCLES 54
+#define DIGITAL_TOGGLE_MEASUERED_NANOSECS 90.0
+#define DIGITAL_TOGGLE_MEASUERED_CYCLES_MAX 58
+#define DIGITAL_TOGGLE_MEASUERED_NANOSECS_MAX 96.7
+#define DIGITAL_PULSE_MEASUERED_CYCLES 53
+#define DIGITAL_PULSE_MEASUERED_NANOSECS 88.3
+#define DIGITAL_PULSE_MEASUERED_CYCLES_MAX 62
+#define DIGITAL_PULSE_MEASUERED_NANOSECS_MAX 103.3
+#define LATENCY_MEASUERED_CYCLES 119
+#define LATENCY_MEASUERED_NANOSECS 198.3
+#define LATENCY_MEASUERED_CYCLES_MAX 145
+#define LATENCY_MEASUERED_NANOSECS_MAX 241.7
+// average reading (binary) 0.00
+#define SPI_transfer16_MEASUERED_CYCLES 515
+#define SPI_transfer16_MEASUERED_NANOSECS 858.3
+#define SPI_transfer16_MEASUERED_CYCLES_MAX 519
+#define SPI_transfer16_MEASUERED_NANOSECS_MAX 865.0
+Result 1111111111111111 1 FFFE 65534
+//fastAnalogRead pin 14 result 1658
+#define FAST_ADC_CYCLES 594
+#define FAST_ADC_NANOSECS 990.0
+#define FAST_ADC_CYCLES_MAX 598
+#define FAST_ADC_NANOSECS_MAX 996.7
+#define LATENCY_DIRECT_MEASUERED_CYCLES 66
+#define LATENCY_DIRECT_MEASUERED_NANOSECS 110.0
+#define LATENCY_DIRECT_MEASUERED_CYCLES_MAX 71
+#define LATENCY_DIRECT_MEASUERED_NANOSECS_MAX 118.3

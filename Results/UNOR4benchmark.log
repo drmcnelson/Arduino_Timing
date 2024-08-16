@@ -1,0 +1,63 @@
+/* -----------------------------------------------
+Benchmark digital i/o
+(c) 2024 by Mitchell C. Nelson, Ph.D.
+reboot         - reboots the entire board
+help           - display this message
+diagnostic pin nsecs - pulse this pin for diagnostics
+adc [pin]      - time analogRead
+set [npin] hi|low|input|pullup|output
+read [npin]    - time digital Read
+write [npin]   - time digital Write
+toggle [npin]  - time digital Toggle
+pulse [npin]   - time write high then low
+latency [npin_in npin_out] - time isr latency
+spi            - time spi transfers
+faux spi       - time manual loop spi transfers
+timer1 usecs pin cycles - time interval start and intervals
+*/
+//fastAnalogRead pin 14 result 3124
+#define ANALOGREAD_CYCLES 819
+#define ANALOGREAD_NANOSECS 17062.5
+#define ANALOGREAD_CYCLES_MAX 952
+#define ANALOGREAD_NANOSECS_MAX 19833.3
+// Set pin 0 output
+// Set pin 1 output
+// Set pin 2 input
+// Set pin 3 output
+#define DIGITAL_READ_MEASUERED_CYCLES 72
+#define DIGITAL_READ_MEASUERED_NANOSECS 1500.0
+#define DIGITAL_READ_MEASUERED_CYCLES_MAX 204
+#define DIGITAL_READ_MEASUERED_NANOSECS_MAX 4250.0
+#define DIGITAL_WRITE_MEASUERED_CYCLES 21
+#define DIGITAL_WRITE_MEASUERED_NANOSECS 437.5
+#define DIGITAL_WRITE_MEASUERED_CYCLES_MAX 173
+#define DIGITAL_WRITE_MEASUERED_NANOSECS_MAX 3604.2
+#define DIGITAL_WRITE_HIGH_MEASUERED_CYCLES 20
+#define DIGITAL_WRITE_HIGH_MEASUERED_NANOSECS 416.7
+#define DIGITAL_WRITE_HIGH_MEASUERED_CYCLES_MAX 173
+#define DIGITAL_WRITE_HIGH_MEASUERED_NANOSECS_MAX 3604.2
+#define DIGITAL_WRITE_LOW_MEASUERED_CYCLES 21
+#define DIGITAL_WRITE_LOW_MEASUERED_NANOSECS 437.5
+#define DIGITAL_WRITE_LOW_MEASUERED_CYCLES_MAX 172
+#define DIGITAL_WRITE_LOW_MEASUERED_NANOSECS_MAX 3583.3
+#define DIGITAL_TOGGLE_MEASUERED_CYCLES 119
+#define DIGITAL_TOGGLE_MEASUERED_NANOSECS 2479.2
+#define DIGITAL_TOGGLE_MEASUERED_CYCLES_MAX 250
+#define DIGITAL_TOGGLE_MEASUERED_NANOSECS_MAX 5208.3
+#define DIGITAL_PULSE_MEASUERED_CYCLES 100
+#define DIGITAL_PULSE_MEASUERED_NANOSECS 2083.3
+#define DIGITAL_PULSE_MEASUERED_CYCLES_MAX 232
+#define DIGITAL_PULSE_MEASUERED_NANOSECS_MAX 4833.3
+#define LATENCY_MEASUERED_CYCLES 182
+#define LATENCY_MEASUERED_NANOSECS 3791.7
+#define LATENCY_MEASUERED_CYCLES_MAX 312
+#define LATENCY_MEASUERED_NANOSECS_MAX 6500.0
+// average reading (binary) 0.00
+#define SPI_transfer16_MEASUERED_CYCLES 327
+#define SPI_transfer16_MEASUERED_NANOSECS 6812.5
+#define SPI_transfer16_MEASUERED_CYCLES_MAX 464
+#define SPI_transfer16_MEASUERED_NANOSECS_MAX 9666.7
+Result 0000000000000000 0 0 0
+// diagnostic on pin 3 5000 nsecs
+// Timer1 period 10000 pin 3 cycles 4
+// Timer1 cpucycles 18 479656 1919822 times 375nsec 9.9928e+06nsec 3.9996e+07nsec 3.0003e+07nsec counter 0
