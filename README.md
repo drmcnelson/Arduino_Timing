@@ -1,7 +1,21 @@
 # Arduino_Timing
-Measure interrupt latency, jitter and timing for various digital and analog i/o operations.
+Measure interrupt latency, jitter and timing for various digital and analog i/o operations that you may need
+if you are developing an embedded instrument or control system.
 
-Microcontrollers (MCU) are increasingly being used in applications where tiking is criticial, in effect displacing the FPGA from some of its traditional domain.
-If you are using your Arduino or Teensy, or similar, in this way, you may be interested in measuring timing and jitter for various functions including digital read, write, toggle, SPI transfers, analog i/o.
-This is an Arduino sketch measures and reports timings and generates output in the format of macros that you can include in a header file.
-The code has been tested on a Teensy 4.0 and UNO R4.  Please let me know if you would like to contribute modifications for other boards.
+The output is in the syntax of a header file for C or C++.
+
+The code includes section that uses the standard Arduino API as well as specific code for the Teensy 4.x and
+the Arduino UNO R4.
+
+For the R4, you will want to use my version of the SPI library, this version adds true 16-bit transfers and
+enhanced loop friendly transfer comprising three calls  transfer16_setup(), transfer16_transfer(), and 
+transfer16_cleanup()). 
+
+Look for the files SPI.cpp and SPI.h in my fork of the Arduino Renesas support package.
+
+In the sub-directory  Python, you will find a Python script  SimpleDataLOgger.py that can be used as a class
+library or a utility to issue commands and collects results.  There are scripts that you can modify to suit your
+needs.  From the program's cli, the command to runa script is @scriptfilespec.   To record output to a logfile,
+run the program with the switch --logfile logfilespec
+
+The subdirectory Images has some oscilloscope images collected using the program.
