@@ -372,7 +372,7 @@ void adcSetup() {
 
 // -------------------------------------------
 //#define SPI_SPEED 20000000
-#define SPI_SPEED 12000000
+#define SPI_SPEED 24000000
 SPISettings spi_settings( SPI_SPEED, MSBFIRST, SPI_MODE0);
 
 #define ADC_WAIT_NANOSECONDS 500 // the digital write time adds another 600nsecs
@@ -691,6 +691,13 @@ void loop() {
       Serial.println("  spi            - time spi transfers");
       Serial.println("  faux spi       - time manual loop spi transfers");
       Serial.println("  timer1 usecs pin cycles - time interval start and intervals");
+
+#ifdef IS_ADUINO_UNO_R4
+      Serial.println(" UNO R4 specific fucntions");
+      Serial.println("  fast spi       - loop optimized spi readout transfers");
+      Serial.println("  slow spi       - the orginal two byte transfer");
+#endif
+      
 #ifdef IS_TEENSY
       Serial.println(" Teensy specific fucntions");
       Serial.println("  macro          - time read macro");
@@ -1302,7 +1309,96 @@ void loop() {
       //SPI.end();
 
     }
-  
+
+#ifdef IS_ARDUINO_UNO_R4
+    else if (testKey( rcvbuffer, "fast spi", &pc)) {
+
+      uint16_t data[NKNTS];
+      float ravg = 0.;
+
+      //SPI.begin();
+      SPI.beginTransaction(spi_settings);
+
+      SPI.transfer16_setup();
+      
+      cpuavg = 0;
+      cpumax = 0;
+      for (int n = 0; n < NKNTS; n++ ) {
+
+	DIGITALWRITE(CNVSTPin,HIGH);
+	DELAYNANOSECONDS(ADC_WAIT_NANOSECONDS);
+	DIGITALWRITE(CNVSTPin,LOW);
+	
+	elapsed_cycles_start();
+	
+	DIGITALWRITE(SPAREPIN,HIGH);
+	data[n] = SPI.transfer16_transfer(0xFFFF);
+	DIGITALWRITE(SPAREPIN,LOW);
+
+	cpucycles = elapsed_cycles();
+	cpuavg += cpucycles;
+	if ( cpucycles > cpumax) cpumax = cpucycles;
+
+      }
+      SPI.transfer16_cleanup();
+
+      for (uint16_t i=0, ravg = 0; i<NKNTS; i++){
+        ravg += data[i];
+      }
+      ravg /= NKNTS;
+      serial_printf( "// average reading (binary) %.2f\n", ravg);
+      
+      sendResults( "SPI_transfer16", cpuavg, cpumax, NKNTS);
+
+      
+      SPI.endTransaction();
+      //SPI.end();
+
+    }
+
+    else if (testKey( rcvbuffer, "slow spi", &pc)) {
+
+      uint16_t data[NKNTS];
+      float ravg = 0.;
+
+      //SPI.begin();
+      SPI.beginTransaction(spi_settings);
+
+      cpuavg = 0;
+      cpumax = 0;
+      for (int n = 0; n < NKNTS; n++ ) {
+
+	DIGITALWRITE(CNVSTPin,HIGH);
+	DELAYNANOSECONDS(ADC_WAIT_NANOSECONDS);
+	DIGITALWRITE(CNVSTPin,LOW);
+	
+	elapsed_cycles_start();
+	
+	DIGITALWRITE(SPAREPIN,HIGH);
+	data[n] = SPI.transfer16_asbytes(0xFFFF);
+	DIGITALWRITE(SPAREPIN,LOW);
+
+	cpucycles = elapsed_cycles();
+	cpuavg += cpucycles;
+	if ( cpucycles > cpumax) cpumax = cpucycles;
+
+      }
+
+      for (uint16_t i=0, ravg = 0; i<NKNTS; i++){
+        ravg += data[i];
+      }
+      ravg /= NKNTS;
+      serial_printf( "// average reading (binary) %.2f\n", ravg);
+      
+      sendResults( "SPI_transfer16", cpuavg, cpumax, NKNTS);
+
+      
+      SPI.endTransaction();
+      //SPI.end();
+
+    }
+    
+#endif  
     else if (testKey( rcvbuffer, "faux spi", &pc)) {
       //uint32_t cyclesnext, cyclesnow;
       int d[32] = {0};
