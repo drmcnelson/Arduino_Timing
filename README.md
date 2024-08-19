@@ -7,11 +7,13 @@ The output is in the syntax of a header file for C or C++.
 The code includes section that uses the standard Arduino API as well as specific code for the Teensy 4.x and
 the Arduino UNO R4.
 
-For the R4, you will want to use my version of the SPI library, this version adds true 16-bit transfers and
-enhanced loop friendly transfer comprising three calls  transfer16_setup(), transfer16_transfer(), and 
-transfer16_cleanup()). 
+The Teensy4 is extremely fast, you can see oscilloscope images for the timing in the Images subdirectory
 
-Look for the files SPI.cpp and SPI.h in my fork of the Arduino Renesas support package.
+The Uno R4 is a bit slower and there are some issues in some of their libraries.  If you want to run on an
+UNO R4, you need to use the upgraded SPI library which you can download from here https://github.com/drmcnelson/Arduino_UNO_R4_SPI_Speedup
+
+The upgrade for the UNO R4 SPI library adds true 16-bit transfers and an enhanced loop friendly API with reduced overhead for repeated transfers.
+True 16 bit transfers are already built into the Teensy 4 SPI libraries.
 
 In the sub-directory  Python, you will find a Python script  SimpleDataLOgger.py that can be used as a class
 library or a utility to issue commands and collects results.  There are scripts that you can modify to suit your
