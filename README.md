@@ -4,7 +4,7 @@ if you are developing an embedded instrument or control system.
 
 The output is in the syntax of a header file for C or C++.
 
-The code includes section that uses the standard Arduino API as well as specific code for the Teensy 4.x and
+The code includes sections that use the standard Arduino API as well as specific code for the Teensy 4.x and
 the Arduino UNO R4.
 
 The Teensy4 is extremely fast, you can see oscilloscope images for the timing in the Images subdirectory
