@@ -20,4 +20,4 @@ library or a utility to issue commands and collects results.  There are scripts 
 needs.  From the program's cli, the command to runa script is @scriptfilespec.   To record output to a logfile,
 run the program with the switch --logfile logfilespec
 
-The subdirectory Images has some oscilloscope images collected using the program.
+The Images subdirectory has oscilloscope images for several other tests as well as the SPI.
